@@ -1,0 +1,9 @@
+nimble.develop
+nimble.paths
+nimbledeps
+kernel.bin
+canine.iso
+objects/
+nimcache/
+qemu.log
+
