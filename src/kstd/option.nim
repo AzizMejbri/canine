@@ -51,8 +51,7 @@ proc isNone*[T](opt: Option[T]): bool {.inline.} =
 
 proc get*[T](opt: Option[T]): T {.inline.} =
   when hasPtrNiche(T):
-    if opt.raw == nil:
-      kernelAssert false, "Option.get() called on None"
+    kernelAssert opt.raw != nil, "Option.get() called on None"
     result = opt.raw
   else:
     case opt.optKind

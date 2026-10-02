@@ -10,3 +10,5 @@ const IrqLines* = (
 
 const PitFreq*         = 250
 const CodeSegmentSel*  = 0x08'u16
+const KernelStackSize* = 0x4000'u64
+

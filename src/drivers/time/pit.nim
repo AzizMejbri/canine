@@ -82,10 +82,12 @@ proc pitHandler() {.noconv, asmNoStackFrame.} =
   asm "iretq"
 
 proc pitIsrBody() {.exportc: "pit_isr_body", cdecl, used.} =
-  setCursor 0, 0
-  put "Pit Counter: "
-  putUint pitCounter
+  # setCursor 0, 0
+  # put "Pit Counter: "
+  # putUint pitCounter
   inc pitCounter
+
+proc getPitCounter*(): uint64 {.inline.} = pitCounter
 
 initAppend 130:
   init none(Config)

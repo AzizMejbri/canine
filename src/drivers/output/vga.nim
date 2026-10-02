@@ -1,6 +1,4 @@
-import kstd/option
 import macros
-import drivers/output/serial as com
 
 const
   VGA_WIDTH*  = 80
@@ -30,109 +28,109 @@ type
 
 var vgaW*: Vga_Writer
 
-proc flushCell(w: var Vga_Writer, row, col: int) {.inline.} =
+proc flushCell(row, col: int) {.inline.} =
   let idx = row * VGA_WIDTH + col
-  let cell = w.buffer[row][col]
+  let cell = vgaW.buffer[row][col]
   VGA_MEM[idx] = uint16(cell.character) or (uint16(cell.color) shl 8)
 
-proc flush*(w: var Vga_Writer = vgaW) =
+proc flush*() =
   for row in 0 ..< VGA_HEIGHT:
     for col in 0 ..< VGA_WIDTH:
-      flushCell(w, row, col)
+      flushCell(row, col)
 
-proc scrollUp*(w: var Vga_Writer = vgaW) =
+proc scrollUp*() =
   for r in 0 ..< VGA_HEIGHT - 1:
     for c in 0 ..< VGA_WIDTH:
-      w.buffer[r][c] = w.buffer[r + 1][c]
-  let blank = Vga_Cell(character: uint8(' '), color: w.color)
+      vgaW.buffer[r][c] = vgaW.buffer[r + 1][c]
+  let blank = Vga_Cell(character: uint8(' '), color: vgaW.color)
   for c in 0 ..< VGA_WIDTH:
-    w.buffer[VGA_HEIGHT - 1][c] = blank
-  flush w
+    vgaW.buffer[VGA_HEIGHT - 1][c] = blank
+  flush()
 
-proc newline*(w: var Vga_Writer = vgaW) =
-  var oldColor = w.color
-  w.color = uint8(ord(LightGray) or (ord(Black) shl 4))
-  w.cursorX = 0
-  inc w.cursorY
-  if w.cursorY >= VGA_HEIGHT:
-    w.cursorY = VGA_HEIGHT - 1
-    scrollUp w
-  w.color = oldColor
+proc newline*() =
+  var oldColor = vgaW.color
+  vgaW.color = uint8(ord(LightGray) or (ord(Black) shl 4))
+  vgaW.cursorX = 0
+  inc vgaW.cursorY
+  if vgaW.cursorY >= VGA_HEIGHT:
+    vgaW.cursorY = VGA_HEIGHT - 1
+    scrollUp()
+  vgaW.color = oldColor
 
-proc clear*(w: var Vga_Writer = vgaW) =
+proc clear*() =
   let blank = Vga_Cell(character: uint8(' '), color: attr(LightGray, Black))
   for r in 0 ..< VGA_HEIGHT:
     for c in 0 ..< VGA_WIDTH:
-      w.buffer[r][c] = blank
-  w.cursorX = 0
-  w.cursorY = 0
-  flush w
+      vgaW.buffer[r][c] = blank
+  vgaW.cursorX = 0
+  vgaW.cursorY = 0
+  flush()
 
-proc putc*(c: char, w: var Vga_Writer = vgaW) =
+proc putc*(c: char) =
   if c == '\n':
-    newline w
+    newline()
     return
   if c == '\t':
-    putc(' ', w)
-    putc(' ', w)
+    putc(' ')
+    putc(' ')
     return
   if c == char(8'u8):
-    if w.cursorX > 0:
-      dec w.cursorX
-    elif w.cursorY > 0:
-      dec w.cursorY
-      w.cursorX = VGA_WIDTH - 1
-    w.buffer[w.cursorY][w.cursorX] = Vga_Cell(character: uint8(' '), color: w.color)
-    flushCell(w, w.cursorY, w.cursorX)
+    if vgaW.cursorX > 0:
+      dec vgaW.cursorX
+    elif vgaW.cursorY > 0:
+      dec vgaW.cursorY
+      vgaW.cursorX = VGA_WIDTH - 1
+    vgaW.buffer[vgaW.cursorY][vgaW.cursorX] = Vga_Cell(character: uint8(' '), color: vgaW.color)
+    flushCell(vgaW.cursorY, vgaW.cursorX)
     return
-  w.buffer[w.cursorY][w.cursorX] = Vga_Cell(character: uint8(c), color: w.color)
-  flushCell(w, w.cursorY, w.cursorX)
-  inc w.cursorX
-  if w.cursorX >= VGA_WIDTH:
-    newline w
+  vgaW.buffer[vgaW.cursorY][vgaW.cursorX] = Vga_Cell(character: uint8(c), color: vgaW.color)
+  flushCell(vgaW.cursorY, vgaW.cursorX)
+  inc vgaW.cursorX
+  if vgaW.cursorX >= VGA_WIDTH:
+    newline()
 
-proc puts*(s: openArray[char], w: var Vga_Writer = vgaW) =
+proc puts*(s: openArray[char]) =
   for c in s:
-    putc(c, w)
+    putc(c)
 
-proc puts*(s: cstring, w: var Vga_Writer = vgaW) =
+proc puts*(s: cstring) =
   if s.isNil: return
   var p = cast[ptr UncheckedArray[char]](s)
   var i = 0
   while p[i] != '\0':
-    putc p[i], w
+    putc(p[i])
     inc i
 
-proc putHexDigit*(n: uint8, w: var Vga_Writer = vgaW) {.inline.} =
-  putc(char(if n < 10: ord('0') + int(n) else: ord('a') + int(n) - 10), w)
+proc putHexDigit*(n: uint8) {.inline.} =
+  putc(char(if n < 10: ord('0') + int(n) else: ord('a') + int(n) - 10))
 
-proc putUintHex*(x: uint64, w: var Vga_Writer = vgaW) =
+proc putUintHex*(x: uint64) =
   var started = false
   for i in countdown(15, 0):
     let d = uint8((x shr (i * 4)) and 0xF'u64)
     if d != 0 or started or i == 0:
       started = true
-      putHexDigit(d, w)
+      putHexDigit(d)
 
-proc putHex*(x: uint64, w: var Vga_Writer = vgaW) =
-  puts("0x", w)
-  putUintHex(x, w)
+proc putHex*(x: uint64) =
+  puts("0x")
+  putUintHex(x)
 
-proc putHexPadded*(x: uint64, digits: int, w: var Vga_Writer = vgaW) =
+proc putHexPadded*(x: uint64, digits: int) =
   ## Fixed-width hex, no prefix. `digits` in 1..16.
   var i = digits - 1
   while i >= 0:
-    putHexDigit(uint8((x shr (i * 4)) and 0xF'u64), w)
+    putHexDigit(uint8((x shr (i * 4)) and 0xF'u64))
     dec i
 
-proc putHex*(x: uint32, w: var Vga_Writer = vgaW) {.inline.} = putHex(uint64(x), w)
-proc putHex*(x: uint16, w: var Vga_Writer = vgaW) {.inline.} = putHex(uint64(x), w)
-proc putHex*(x: uint8,  w: var Vga_Writer = vgaW) {.inline.} = putHex(uint64(x), w)
-proc putHex*(x: int,    w: var Vga_Writer = vgaW) {.inline.} = putHex(cast[uint64](x), w)
+proc putHex*(x: uint32) {.inline.} = putHex(uint64(x))
+proc putHex*(x: uint16) {.inline.} = putHex(uint64(x))
+proc putHex*(x: uint8)  {.inline.} = putHex(uint64(x))
+proc putHex*(x: int)    {.inline.} = putHex(cast[uint64](x))
 
-proc putUint*(x: uint64, w: var Vga_Writer = vgaW) =
+proc putUint*(x: uint64) =
   if x == 0:
-    putc('0', w)
+    putc('0')
     return
   var buf: array[20, char]
   var i = buf.len
@@ -143,65 +141,63 @@ proc putUint*(x: uint64, w: var Vga_Writer = vgaW) =
     v = v div 10
   var j = i
   while j < buf.len:
-    putc(buf[j], w)
+    putc(buf[j])
     inc j
 
-proc putInt*(x: int64, w: var Vga_Writer = vgaW) =
+proc putInt*(x: int64) =
   if x < 0:
-    putc('-', w)
+    putc('-')
     if x == low(int64):
-      puts("9223372036854775808", w)
+      puts("9223372036854775808")
       return
-    putUint(uint64(-x), w)
+    putUint(uint64(-x))
   else:
-    putUint(uint64(x), w)
+    putUint(uint64(x))
 
-proc putInt*(x: int32,  w: var Vga_Writer = vgaW) {.inline.} = putInt(int64(x), w)
-proc putInt*(x: int16,  w: var Vga_Writer = vgaW) {.inline.} = putInt(int64(x), w)
-proc putInt*(x: int8,   w: var Vga_Writer = vgaW) {.inline.} = putInt(int64(x), w)
-proc putInt*(x: int,    w: var Vga_Writer = vgaW) {.inline.} = putInt(int64(x), w)
-proc putInt*(x: uint64, w: var Vga_Writer = vgaW) {.inline.} = putUint(x, w)
-proc putInt*(x: uint32, w: var Vga_Writer = vgaW) {.inline.} = putUint(uint64(x), w)
-proc putUint*(x: uint32, w: var Vga_Writer = vgaW) {.inline.} = putUint(uint64(x), w)
-proc putUint*(x: uint16, w: var Vga_Writer = vgaW) {.inline.} = putUint(uint64(x), w)
-proc putUint*(x: uint8,  w: var Vga_Writer = vgaW) {.inline.} = putUint(uint64(x), w)
+proc putInt*(x: int32)   {.inline.} = putInt(int64(x))
+proc putInt*(x: int16)   {.inline.} = putInt(int64(x))
+proc putInt*(x: int8)    {.inline.} = putInt(int64(x))
+proc putInt*(x: int)     {.inline.} = putInt(int64(x))
+proc putInt*(x: uint64)  {.inline.} = putUint(x)
+proc putInt*(x: uint32)  {.inline.} = putUint(uint64(x))
+proc putUint*(x: uint32) {.inline.} = putUint(uint64(x))
+proc putUint*(x: uint16) {.inline.} = putUint(uint64(x))
+proc putUint*(x: uint8)  {.inline.} = putUint(uint64(x))
 
-converter toOptColor*(c: Vga_Color): Option[Vga_Color] {.inline.} =
-  some c
+proc chCol*(fg: Vga_Color, bg: Vga_Color) =
+  let newFg = uint8(ord fg)
+  let newBg = uint8(ord bg)
+  vgaW.color = newFg or (newBg shl 4)
 
-const noColor* = none Vga_Color
+proc chFg*(fg: Vga_Color) =
+  let newFg = uint8(ord fg)
+  vgaW.color = vgaW.color and newFg
 
-proc chCol*(fg: Option[Vga_Color] = none(Vga_Color),
-            bg: Option[Vga_Color] = none(Vga_Color),
-            w: var Vga_Writer = vgaW) =
-  let currFg = w.color and 0x0F'u8
-  let currBg = (w.color shr 4) and 0x0F'u8
-  let newFg = if fg.isSome: uint8(ord(fg.get)) else: currFg
-  let newBg = if bg.isSome: uint8(ord(bg.get)) else: currBg
-  w.color = newFg or (newBg shl 4)
+proc chBg*(bg: Vga_Color) =
+  let newBg = uint8(ord bg)
+  vgaW.color = vgaW.color and (newBg shl 4)
 
+template resetCol*() = chCol LightGray, Black
 
-template resetCol*(w: var Vga_Writer = vgaW) = chCol LightGray, Black, w
-
-proc put*(p: static string,   w: var Vga_Writer = vgaW) = puts(p, w)
-proc put*(p: openArray[char], w: var Vga_Writer = vgaW) = puts(p, w)
-proc put*(p: cstring,         w: var Vga_Writer = vgaW) =
+proc put*(p: openArray[char]) = puts(p)
+proc put*(p: cstring) =
   var i = 0
   while p[i] != '\0':
-    putc(p[i], w)
+    putc(p[i])
     inc i
-proc put*(p: char,            w: var Vga_Writer = vgaW) = putc p, w
-proc put*(p: bool,            w: var Vga_Writer = vgaW) = puts(if p: "true" else: "false", w)
-proc put*(p: SomeUnsignedInt, w: var Vga_Writer = vgaW) = putUint uint64(p), w
-proc put*(p: SomeSignedInt,   w: var Vga_Writer = vgaW) = putInt int64(p), w
+proc put*(p: char)            = putc p
+proc put*(p: SomeUnsignedInt) = putUint uint64(p)
+proc put*(p: SomeSignedInt)   = putInt int64(p)
+proc put*(p: bool) =
+  if p: put "true" else: put "false"
 
-template vgaPut(p: typed, w: var Vga_Writer = vgaW) =
+template vgaPut(p: typed) =
   bind put
-  put p, w
+  put p
 
-template vgaPutc(c: char, w: var Vga_Writer = vgaW) =
+template vgaPutc(c: char) =
   bind putc
-  putc c, w
+  putc c
 
 macro print*(args: varargs[untyped]): untyped =
   result = newStmtList()
@@ -217,6 +213,48 @@ macro println*(args: varargs[untyped]): untyped =
     result.add newCall(vgaPut, a)
   result.add newCall(vgaPutC, newLit('\n'))
 
-proc setCursor*(x: int, y: int, w: var Vga_Writer = vgaW) =
-  w.cursorX = x
-  w.cursorY = y
+proc setCursor*(x: int, y: int) =
+  vgaW.cursorX = x
+  vgaW.cursorY = y
+
+proc putSpaces*(n: int) =
+  for _ in 0 ..< n: putc ' '
+
+proc putAscii*(b: uint8) =
+  if b >= 0x20 and b < 0x7F: putc char(b)
+  else: putc '.'
+
+proc hexdump*(p: pointer, len: uint, label: cstring = nil) =
+  if label != nil:
+    puts label
+    putc '\n'
+  if p == nil:
+    puts "<nil>\n"
+    return
+  var address = cast[uint64](p)
+  var base = cast[uint64](p)
+  var remaining = int(len)
+  while remaining > 0:
+    let n = if remaining < 16: remaining else: 16
+
+    # address
+    putHexPadded(address, 16)
+    puts("  ")
+
+    # hex bytes
+    for i in 0 ..< 16:
+      if i < n:
+        putHexPadded(cast[ptr UncheckedArray[uint8]](address)[i], 2)
+      else:
+        puts("  ")
+      putc(if i == 7: ' ' else: ' ')
+
+    puts("  |")
+
+    # ascii
+    for i in 0 ..< n:
+      putAscii cast[ptr UncheckedArray[uint8]](address)[i]
+    puts("|\n")
+
+    address += uint64(n)
+    remaining -= n

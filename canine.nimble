@@ -20,12 +20,21 @@ const
   NIM_FLAGS = "--os:standalone --noMain --noLinking --threads:off " &
               "--path:src " &
               "--cc:clang " &
-              "--mm:none " &                # "--assertions:off " & 
+              "--mm:none " &                      # "--assertions:off " & 
               "--passC:-fno-stack-protector " &
               "--passC:-ffreestanding --passC:-m64 --passC:-O2 " &
               "--passC:-Wall --passC:-Wextra " &
-              "--debugger:native " &        # tells Nim to pass -g to clang and keep Nim-level debug info
-              "--lineDir:on "               # emits #line directives so GDB maps C lines back to .nim
+              "--debugger:native " &              # tells Nim to pass -g to clang and keep Nim-level debug info
+              "--lineDir:on " &                   # emits #line directives so GDB maps C lines back to .nim
+              "--stackTrace:off " &               # no more frame pointers injection and per-call bookkeeping
+              "--panics:on " &
+              "--exceptions:goto " &              # setjmp is the default
+              "--passC:-fomit-frame-pointer " &   # just in case
+              "--stackTrace:off " &
+              # "--passC:-fstack-usage "            # stack usage analysis
+              "--fieldChecks:off " &
+              "--cincludes:src/kstd "
+
 
   LINKER_FILE = "linker.ld"
   LDFLAGS     = "-m elf_x86_64 -T " & LINKER_FILE
@@ -162,7 +171,7 @@ task iso, "Create bootable ISO":
 
 task emu, "Run the kernel in QEMU":
   doBuild()
-  exec "qemu-system-x86_64 -cdrom " & ISO & " -serial stdio -no-reboot -d int,guest_errors"
+  exec "qemu-system-x86_64 -cdrom " & ISO & " -serial stdio -no-reboot" #[-d int,guest_errors]#
 
 task dbg, "Debug the kernel in QEMU using GDB":
   doBuild()
@@ -182,4 +191,4 @@ task b, "Compile and link the kernel":
 task e, "Run the kernel in QEMU":
   doBuild()
   doIso()
-  exec "qemu-system-x86_64 -cdrom " & ISO & " -serial stdio -no-reboot -d int,guest_errors"
+  exec "qemu-system-x86_64 -cdrom " & ISO & " -serial stdio -no-reboot" #[ -d int,guest_errors" ]#

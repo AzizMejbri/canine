@@ -10,6 +10,8 @@ SECTIONS
     /*     *(.multiboot) */
     /* } */
 
+    __kernel_mem_start = .;
+
     .multiboot2 : ALIGN(8)
     {
         KEEP(*(.multiboot2))
@@ -35,4 +37,7 @@ SECTIONS
     {
         *(.bss*)
     }
+
+    . = ALIGN(4096);
+    __kernel_mem_end = .;
 }

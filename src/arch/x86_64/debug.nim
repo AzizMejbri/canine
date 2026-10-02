@@ -2,6 +2,7 @@ import arch/arch_specific
 import ./debug/[dr6, dr7, raw]
 import ./disas
 export dr6, dr7
+import globals
 
 proc readDR0*(): uint64 {.inline, x86_64.} = raw.rawReadDR0()
 proc readDR1*(): uint64 {.inline, x86_64.} = raw.rawReadDR1()
@@ -26,6 +27,15 @@ type
     dumpRegs  = 1
     disasRip  = 2
     disasMany = 4
+
+  StackInfo* = object
+    top* : uint64
+    base*: uint64
+    sp*  : uint64
+
+  MemInfo* = object
+    start*, length*: uint64
+
 
 proc `and`*(df1, df2: DebugFlag): uint8 {.inline.} =
   uint8(ord(df1)) or uint8(ord(df2))
@@ -165,3 +175,29 @@ proc disasAround*(address: uint64, before, after: int) =
     put cast[cstring](addr buf[0])
     put "\n"
     a += uint64(len)
+
+proc kernelStackBase(): uint64 {.inline, x86_64.} =
+  asm """
+    leaq kernel_stack(%%rip), %0
+    : "=r" (`result`)
+  """
+
+proc kernelStackInfo*(): StackInfo {.x86_64.} =
+  result.base = kernelStackBase()
+  result.top  = result.base + KernelStackSize
+  let spAddr  = addr result.sp
+  asm """
+    .intel_syntax noprefix
+    mov [rdi], rsp
+    .att_syntax
+    :: "D" (`spAddr`)
+  """
+
+proc kernelMemInfo*(): MemInfo {.x86_64.}=
+  asm """
+    leaq __kernel_mem_start(%%rip), %0
+    leaq __kernel_mem_end(%%rip), %1
+    subq %0, %1
+    : "=r" (`result.start`), "=r" (`result.length`)
+    :: "cc"
+  """

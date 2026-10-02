@@ -119,5 +119,48 @@ macro println*(args: varargs[untyped]): untyped =
     result.add newCall(serialPut, a)
   result.add newCall(serialPutC, newLit('\n'))
 
+proc putSpaces*(n: int) =
+  for _ in 0 ..< n: putc ' '
+
+proc putAscii*(b: uint8) =
+  if b >= 0x20 and b < 0x7F: putc char(b)
+  else: putc '.'
+
+proc hexdump*(p: pointer, len: uint, label: cstring = nil) =
+  if label != nil:
+    put label
+    putc '\n'
+  if p == nil:
+    put "<nil>\n"
+    return
+  var address = cast[uint64](p)
+  var base = cast[uint64](p)
+  var remaining = int(len)
+  while remaining > 0:
+    let n = if remaining < 16: remaining else: 16
+
+    # address
+    putHexPadded(address, 16)
+    put("  ")
+
+    # hex bytes
+    for i in 0 ..< 16:
+      if i < n:
+        putHexPadded(cast[ptr UncheckedArray[uint8]](address)[i], 2)
+      else:
+        put("  ")
+      putc(if i == 7: ' ' else: ' ')
+
+    put("  |")
+
+    # ascii
+    for i in 0 ..< n:
+      putAscii cast[ptr UncheckedArray[uint8]](address)[i]
+    put("|\n")
+
+    address += uint64(n)
+    remaining -= n
+
+
 initAppend:
   init()

@@ -2,7 +2,8 @@ import drivers/output/[vga, serial as com]
 import drivers/input/keyboard
 import drivers/time/pit
 import drivers/pic
-import arch/x86_64/[idt, ctrl]
+import arch/x86_64/[idt, ctrl, cpuid]
+import mm/pmm/[map, frame_alloc, heap]
 import kstd/fmt
 import kstd/mem
 import kstd/hooks
@@ -15,27 +16,26 @@ import globals
 
 proc NimMain() {.importc.}
 
-const msg = staticFmt("canine v{}  port={}", "0.0.1", 0x3F8'u16)
-
 proc kMain() {.exportc: "kernel_main", cdecl, noreturn.} =
-  NimMain()
 
   # every initialization procedure delegated to the constructor will be invoked here,
   # respecting its designated priority order, making the initialization process the 
   # responsibility of its respective module not of the kMain function
-  initHere()
   clear()
+  resetCol()
+  initHere()
   sti()
 
 
-  singleStepTrap()
-  vga.println "about to div by zero\n"
-  {.push checks: off.}
-  singleStepTrap(dumpRegs and disasMany)
-  let _ {.volatile.} = triggerDE()
-  {.pop.}
-  singleStepTrap()
-  vga.println "survived div by zero\n"
+  # singleStepTrap()
+  # vga.println "about to div by zero\n"
+  # {.push checks: off.}
+  # singleStepTrap(dumpRegs and disasMany)
+  # let _ {.volatile.} = triggerDE()
+  # {.pop.}
+  # singleStepTrap()
+  # vga.println "survived div by zero\n"
+  NimMain()
  
   # vga.println("about to page fault")
   # {.push checks: off.}

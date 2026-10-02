@@ -1,4 +1,4 @@
-proc cpy*(dst, src: pointer, n: csize_t): pointer {.exportc: "memcpy", cdecl, noinline.} = 
+proc cpy*(dst, src: pointer, n: csize_t): pointer {.exportc: "memcpy", cdecl, noinline.} =
   let d = cast[ptr UncheckedArray[uint8]](dst)
   let s = cast[ptr UncheckedArray[uint8]](src)
   var i: csize_t = 0
@@ -45,4 +45,3 @@ proc cmp*(a, b: pointer, n: csize_t): cint {.exportc: "memcmp", cdecl, noinline.
       return cint(x) - cint(y)
     inc i
   result = 0
-

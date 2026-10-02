@@ -20,9 +20,10 @@ multiboot_header_start:
 multiboot_header_end:
 
 .section .bss
+
 .align 16
-.kernel_stack:
-  .skip STACK_SIZE
+.global kernel_stack
+kernel_stack: .skip STACK_SIZE
 
 # Page tables (must be aligned to 4096)
 .align 4096
@@ -36,10 +37,14 @@ pd_table:     .skip 4096
 .extern kernel_main
 
 _start:
-  movl $(.kernel_stack + STACK_SIZE), %esp
-
-  # 1. Disable interrupts
+  # 0. Disable interrupts
   cli
+  
+  # 1. Save GRUB2 in fixed memory locations and give the kernel its actual stack
+  movl %eax, grub2_magic
+  movl %ebx, grub2_info_ptr
+
+  movl $(kernel_stack + STACK_SIZE), %esp
 
   # 2. Set up identity-mapped page tables (map first 1GB)
   # PML4[0] -> PDP
@@ -159,8 +164,6 @@ _start64:
   andq $~((1 << 2) | (1 << 3)), %rax
   movq %rax, %cr0
 
-  
-
   call kernel_main
 
   cli
@@ -203,3 +206,11 @@ tss64:
   .word 0                # reserved
   .word tss64_end - tss64   # I/O map base (offset)
 tss64_end:
+
+.section .bss
+.align 4
+.global grub2_magic
+.global grub2_info_ptr
+grub2_magic:    .skip 4
+grub2_info_ptr: .skip 4
+
